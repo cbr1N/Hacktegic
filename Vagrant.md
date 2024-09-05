@@ -152,6 +152,200 @@ systemctl status docker
 ```
 ![image](https://github.com/user-attachments/assets/4ee3679c-f817-42ee-a022-76fe793a2cfa)
 
+### Docker Compose test environment set up
+
+Now that the docker service is up and running, we will create a test environment that contains a web and database service.
+The database we will use is PostgreSQL.
+For now we will create a docker-compose.yml file that has an Nginx and PostgreSQL service.
+
+```
+version: '3'
+services:
+  web:
+    image: nginx:latest
+    ports:
+      - "8080:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf
+      - ./html:/usr/share/nginx/html
+    depends_on:
+      - db
+
+  db:
+    image: postgres:latest
+    environment:
+      POSTGRES_DB: testdb
+      POSTGRES_USER: testuser
+      POSTGRES_PASSWORD: testpass
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  pgdata:
+```
+Of course the file should be in the same directory as the playbook.yml and VagrantFile.
+
+![image](https://github.com/user-attachments/assets/fedd7685-f296-4d63-b6ba-46a828365431)
+
+Now it is time to modify the playbook.
+
+```
+---
+- hosts: all
+  become: yes
+
+  tasks:
+    - name: "Install required packages"
+      dnf:
+        name: "{{ item }}"
+        state: present
+      with_items:
+        - nginx
+        - certbot
+        - postgresql
+        - postgresql-server
+
+    - name: "Remove old versions of Docker if any"
+      dnf:
+        name:
+          - docker
+          - docker-client
+          - docker-client-latest
+          - docker-common
+          - docker-latest-logrotate
+          - docker-logrotate
+          - docker-engine
+        state: absent
+
+    - name: "Install required system packages"
+      dnf:
+        name: dnf-plugins-core
+        state: present
+
+    - name: "Add Docker CE repository"
+      command: >
+        dnf config-manager --add-repo https://download.docker.com/linux/fedora/docker-ce.repo
+      args:
+        creates: /etc/yum.repos.d/docker-ce.repo
+
+    - name: "Install Docker"
+      dnf:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+        state: present
+
+    - name: "Start Docker service"
+      systemd:
+        name: docker
+        state: started
+        enabled: yes
+
+    - name: "Install Docker Compose"
+      get_url:
+        url: https://github.com/docker/compose/releases/download/1.29.2/docker-compose-Linux-x86_64
+        dest: /usr/local/bin/docker-compose
+        mode: '0755'
+
+    - name: "Create Docker-Compose directory"
+      file:
+        path: /opt/docker-compose
+        state: directory
+        mode: '0755'
+
+    - name: "Ensure nginx.conf is a file"
+      file:
+        path: /opt/docker-compose/nginx.conf
+        state: touch
+        mode: '0644'
+
+    - name: "Ensure nginx.conf is configured correctly"
+      copy:
+        dest: /opt/docker-compose/nginx.conf
+        content: |
+          user  nginx;
+          worker_processes  auto;
+          error_log  /var/log/nginx/error.log warn;
+          pid        /var/run/nginx.pid;
+    
+          events {
+              worker_connections  1024;
+          }
+    
+          http {
+              include       /etc/nginx/mime.types;
+              default_type  application/octet-stream;
+    
+              log_format  main  '$remote_addr - $remote_user [$time_local] "$request" '
+                                '$status $body_bytes_sent "$http_referer" '
+                                '"$http_user_agent" "$http_x_forwarded_for"';
+    
+              access_log  /var/log/nginx/access.log  main;
+    
+              sendfile        on;
+              keepalive_timeout  65;
+    
+              include /etc/nginx/conf.d/*.conf;
+          }
+
+
+    - name: "Create Docker-Compose file for full-fledged environment"
+      copy:
+        dest: /opt/docker-compose/docker-compose.yml
+        content: |
+          version: '3'
+          services:
+            web:
+              image: nginx:latest
+              ports:
+                - "8080:80"
+              volumes:
+                - ./nginx.conf:/etc/nginx/nginx.conf
+                - ./html:/usr/share/nginx/html
+              depends_on:
+                - db
+
+            db:
+              image: postgres:latest
+              environment:
+                POSTGRES_DB: testdb
+                POSTGRES_USER: testuser
+                POSTGRES_PASSWORD: testpass
+              volumes:
+                - pgdata:/var/lib/postgresql/data
+
+          volumes:
+            pgdata:
+
+    - name: "Start Docker-Compose service"
+      command: docker-compose up -d
+      args:
+        chdir: /opt/docker-compose
+```
+
+I have encountered an error with tne nginx.conf file, this is why I have created a task that verifies the creation of that file, in case it doesn't exist.
+Then I modify the file so it is configured correctly.
+The detailed description of both the YAML files is down bellow.
+
+Now that everything is ready we can try provisioning our VM.
+
+![image](https://github.com/user-attachments/assets/d3e2a0b1-e311-40b9-a2ef-2b5f3a2d5949)
+
+The provisioning was a success.
+Now we will connect to the VM and test if everything works.
+
+![image](https://github.com/user-attachments/assets/6fc9edac-3aa5-4a63-8f3d-e8a61056fbed)
+
+As we can see the test environment was created and the services are up and running.
+Now we will try to connect to the database inside the test environment.
+
+
+
+## YAML files explanation
+
+
+
 ## Useful commands
 - `vagrant up` that will instruct Vagrant to create and run the virtual machine
 - `vagrant halt` that will stop the virtual machine
