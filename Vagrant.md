@@ -569,11 +569,52 @@ volumes:
 ```
 
 ## Useful commands
-- `vagrant up` that will instruct Vagrant to create and run the virtual machine
-- `vagrant halt` that will stop the virtual machine
-- `vagrant destroy` that will destroy the virtual machine (useful when we change the VagrantFile and want to recreate it again)
-- `vagrant ssh` that will connect to that machine and give us a remote command line session
-- `vagrant ssh-config` that will display SSH connection information if we want to connect to the machine without Vagrant
+Here's an expanded list of useful Vagrant and Docker commands, along with explanations for managing your Vagrant environments and Docker containers:
+
+### Vagrant Commands
+
+- `vagrant status`**: Shows the status of all your Vagrant machines (e.g., running, suspended, or not created).
+  
+- `vagrant reload`: Restarts the virtual machine and applies any changes made to the Vagrantfile without destroying and recreating the VM.
+  
+- `vagrant provision`: Runs the provisioning scripts (e.g., Ansible) without starting or halting the VM.
+  
+- `vagrant suspend`: Suspends the running VM, saving its state to disk.
+  
+- `vagrant up --no-provision`: Starts the VM without running any provisioning scripts.
+  
+- `vagrant box list`: Lists all the Vagrant boxes currently installed.
+  
+- `vagrant box remove <box-name>`: Removes a specified Vagrant box.
+  
+- `vagrant ssh-config`: Shows the SSH configuration for connecting to the VM without using Vagrant’s `ssh` command.
+
+### Docker Commands
+
+- `docker ps`: Lists all running Docker containers.
+  
+- `docker ps -a`: Lists all containers, including those that are stopped.
+  
+- `docker images`: Lists all Docker images on your system.
+  
+- `docker rmi <image-id>`: Removes a Docker image by its ID.
+  
+- `docker rm <container-id>`: Removes a stopped Docker container by its ID.
+  
+- `docker logs <container-id>`: Displays the logs for a specific Docker container.
+  
+- `docker exec -it <container-id> /bin/bash`: Opens an interactive terminal session inside a running Docker container.
+  
+- `docker-compose up`: Starts up all services defined in the `docker-compose.yml` file.
+  
+- `docker-compose down`: Stops and removes all containers defined in the `docker-compose.yml` file.
+  
+- `docker-compose logs`: Displays the logs for all services defined in the `docker-compose.yml` file.
+  
+- `docker-compose build`: Builds or rebuilds the Docker images specified in the `docker-compose.yml` file.
+  
+- `docker-compose run <service-name> <command>`: Runs a one-off command against a service defined in the `docker-compose.yml` file.
+
 
 ## Useful links
 - https://developer.hashicorp.com/vagrant/tutorials
