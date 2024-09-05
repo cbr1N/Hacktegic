@@ -381,7 +381,192 @@ And it works!
 
 ## YAML files explanation
 
+### `docker-compose.yml`
 
+```
+version: '3'  # Specifies the Docker Compose version to use
+
+services:
+  web:  # Defines the 'web' service
+    image: nginx:latest  # Uses the latest Nginx image from Docker Hub
+    ports:
+      - "8080:80"  # Maps port 80 of the container to port 8080 on the host
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf  # Mounts the local 'nginx.conf' file to the container's Nginx configuration path
+      - ./html:/usr/share/nginx/html  # Mounts the local 'html' directory to the container's web root
+    depends_on:
+      - db  # Specifies that the 'web' service depends on the 'db' service
+
+  db:  # Defines the 'db' service
+    image: postgres:latest  # Uses the latest Postgres image from Docker Hub
+    environment:
+      POSTGRES_DB: testdb  # Sets the name of the default database
+      POSTGRES_USER: testuser  # Sets the username for the default database
+      POSTGRES_PASSWORD: testpass  # Sets the password for the default database user
+    volumes:
+      - pgdata:/var/lib/postgresql/data  # Mounts a named volume for persistent database storage
+
+volumes:
+  pgdata:  # Defines the 'pgdata' named volume for the Postgres database
+```
+
+### playbook.yml
+```
+---
+- hosts: all  # Target all hosts defined in the inventory
+  become: yes  # Use sudo to run tasks with elevated privileges
+
+  tasks:
+    - name: "Install required packages"
+      dnf:
+        name: "{{ item }}"  # Specify the package name to be installed
+        state: present  # Ensure the package is installed
+      with_items:
+        - nginx  # Install Nginx web server
+        - certbot  # Install Certbot for obtaining SSL certificates
+        - postgresql  # Install PostgreSQL client
+        - postgresql-server  # Install PostgreSQL server
+
+    - name: "Remove old versions of Docker if any"
+      dnf:
+        name:
+          - docker
+          - docker-client
+          - docker-client-latest
+          - docker-common
+          - docker-latest-logrotate
+          - docker-logrotate
+          - docker-engine
+        state: absent  # Ensure old or conflicting Docker packages are removed
+
+    - name: "Install required system packages"
+      dnf:
+        name: dnf-plugins-core  # Install DNF plugins for additional package management functionality
+        state: present
+
+    - name: "Add Docker CE repository"
+      command: >
+        dnf config-manager --add-repo https://download.docker.com/linux/fedora/docker-ce.repo
+      args:
+        creates: /etc/yum.repos.d/docker-ce.repo  # Run this command only if the Docker repository file does not already exist
+
+    - name: "Install Docker"
+      dnf:
+        name:
+          - docker-ce  # Install Docker Community Edition
+          - docker-ce-cli  # Install Docker CLI
+          - containerd.io  # Install containerd, which Docker depends on
+        state: present  # Ensure Docker packages are installed
+
+    - name: "Start Docker service"
+      systemd:
+        name: docker  # Specify the Docker service
+        state: started  # Start the Docker service
+        enabled: yes  # Enable Docker to start on system boot
+
+    - name: "Install Docker Compose"
+      get_url:
+        url: https://github.com/docker/compose/releases/download/1.29.2/docker-compose-Linux-x86_64
+        dest: /usr/local/bin/docker-compose  # Download Docker Compose binary to the specified location
+        mode: '0755'  # Set executable permissions for the Docker Compose binary
+
+    - name: "Create Docker-Compose directory"
+      file:
+        path: /opt/docker-compose  # Create a directory for Docker Compose files
+        state: directory
+        mode: '0755'  # Set directory permissions
+
+    - name: "Ensure nginx.conf is a file"
+      file:
+        path: /opt/docker-compose/nginx.conf  # Ensure the Nginx configuration file exists
+        state: touch
+        mode: '0644'  # Set permissions for the Nginx configuration file
+
+    - name: "Ensure nginx.conf is configured correctly"
+      copy:
+        dest: /opt/docker-compose/nginx.conf  # Copy the Nginx configuration to the specified path
+        content: |
+          user  nginx;
+          worker_processes  auto;
+          error_log  /var/log/nginx/error.log warn;
+          pid        /var/run/nginx.pid;
+
+          events {
+              worker_connections  1024;
+          }
+
+          http {
+              include       /etc/nginx/mime.types;
+              default_type  application/octet-stream;
+
+              log_format  main  '$remote_addr - $remote_user [$time_local] "$request" '
+                                '$status $body_bytes_sent "$http_referer" '
+                                '"$http_user_agent" "$http_x_forwarded_for"';
+
+              access_log  /var/log/nginx/access.log  main;
+
+              sendfile        on;
+              keepalive_timeout  65;
+
+              include /etc/nginx/conf.d/*.conf;
+          }
+
+    - name: "Create Docker-Compose file for full-fledged environment"
+      copy:
+        dest: /opt/docker-compose/docker-compose.yml  # Create a Docker Compose configuration file
+        content: |
+          version: '3'
+          services:
+            web:
+              image: nginx:latest  # Use the latest Nginx image from Docker Hub
+              ports:
+                - "8080:80"  # Map port 80 in the container to port 8080 on the host
+              volumes:
+                - ./nginx.conf:/etc/nginx/nginx.conf  # Mount local Nginx configuration file into the container
+                - ./html:/usr/share/nginx/html  # Mount local HTML directory into the container
+              depends_on:
+                - db  # Ensure the 'db' service is started before 'web'
+
+            db:
+              image: postgres:latest  # Use the latest PostgreSQL image from Docker Hub
+              environment:
+                POSTGRES_DB: testdb  # Set the name of the default database
+                POSTGRES_USER: testuser  # Set the username for the database
+                POSTGRES_PASSWORD: testpass  # Set the password for the database user
+              volumes:
+                - pgdata:/var/lib/postgresql/data  # Mount named volume for PostgreSQL data
+
+          volumes:
+            pgdata:  # Define the named volume for PostgreSQL data
+
+    - name: "Ensure html directory exists"
+      file:
+        path: /opt/docker-compose/html  # Ensure the 'html' directory exists
+        state: directory
+        mode: '0755'
+
+    - name: "Ensure html directory has correct permissions"
+      file:
+        path: /opt/docker-compose/html  # Set permissions for the 'html' directory and its contents
+        state: directory
+        recurse: yes
+        mode: '0755'
+
+    - name: "Create index.html file"
+      copy:
+        dest: /opt/docker-compose/html/index.html  # Create an 'index.html' file with a welcome message
+        content: |
+          <html>
+            <head><title>Welcome</title></head>
+            <body><h1>Welcome to Nginx</h1></body>
+          </html>
+        mode: '0644'
+
+    - name: "Start Docker-Compose service"
+      command: docker-compose up -d  # Start the Docker Compose services in detached mode
+      args:
+        chdir: /opt/docker-compose  # Change to the Docker Compose directory before running the command
+```
 
 ## Useful commands
 - `vagrant up` that will instruct Vagrant to create and run the virtual machine
