@@ -21,9 +21,11 @@ vagrant init generic/fedora33
 ![image](https://github.com/user-attachments/assets/1a2eed36-f3db-43eb-b39f-8cf524ce8338)
 
 The contents of the file are these, if we ignore all the comments that contain instructions.
+Also I added the port forwarding, as it is important for the upcoming steps.
 ```
 Vagrant.configure("2") do |config|
   config.vm.box = "generic/fedora33"
+  config.vm.network "forwarded_port", guest: 8080, host: 8080 
 end
 ```
 
@@ -41,7 +43,7 @@ First of all we have to modify the VagrantFile.
 ```
 Vagrant.configure("2") do |config|
   config.vm.box = "generic/fedora33"
-  
+  config.vm.network "forwarded_port", guest: 8080, host: 8080 
   config.vm.provision "ansible" do |ansible|
     ansible.playbook = "playbook.yml"
   end
@@ -268,27 +270,26 @@ Now it is time to modify the playbook.
           worker_processes  auto;
           error_log  /var/log/nginx/error.log warn;
           pid        /var/run/nginx.pid;
-    
+
           events {
               worker_connections  1024;
           }
-    
+
           http {
               include       /etc/nginx/mime.types;
               default_type  application/octet-stream;
-    
+
               log_format  main  '$remote_addr - $remote_user [$time_local] "$request" '
                                 '$status $body_bytes_sent "$http_referer" '
                                 '"$http_user_agent" "$http_x_forwarded_for"';
-    
+
               access_log  /var/log/nginx/access.log  main;
-    
+
               sendfile        on;
               keepalive_timeout  65;
-    
+
               include /etc/nginx/conf.d/*.conf;
           }
-
 
     - name: "Create Docker-Compose file for full-fledged environment"
       copy:
@@ -318,6 +319,29 @@ Now it is time to modify the playbook.
           volumes:
             pgdata:
 
+    - name: "Ensure html directory exists"
+      file:
+        path: /opt/docker-compose/html
+        state: directory
+        mode: '0755'
+
+    - name: "Ensure html directory has correct permissions"
+      file:
+        path: /opt/docker-compose/html
+        state: directory
+        recurse: yes
+        mode: '0755'
+
+    - name: "Create index.html file"
+      copy:
+        dest: /opt/docker-compose/html/index.html
+        content: |
+          <html>
+            <head><title>Welcome</title></head>
+            <body><h1>Welcome to Nginx</h1></body>
+          </html>
+        mode: '0644'
+
     - name: "Start Docker-Compose service"
       command: docker-compose up -d
       args:
@@ -326,6 +350,7 @@ Now it is time to modify the playbook.
 
 I have encountered an error with tne nginx.conf file, this is why I have created a task that verifies the creation of that file, in case it doesn't exist.
 Then I modify the file so it is configured correctly.
+Also there was a problem eith the permissions for the default /html location. I also took care of them.
 The detailed description of both the YAML files is down bellow.
 
 Now that everything is ready we can try provisioning our VM.
@@ -335,12 +360,24 @@ Now that everything is ready we can try provisioning our VM.
 The provisioning was a success.
 Now we will connect to the VM and test if everything works.
 
-![image](https://github.com/user-attachments/assets/6fc9edac-3aa5-4a63-8f3d-e8a61056fbed)
+![image](https://github.com/user-attachments/assets/42666546-a1a4-42b6-b278-94a406843f13)
 
 As we can see the test environment was created and the services are up and running.
 Now we will try to connect to the database inside the test environment.
 
+![image](https://github.com/user-attachments/assets/62642b02-2cd2-4dc9-acfb-af235769c09a)
 
+We have created the testdb and the testuser, having superuser priveleges.
+
+Now let's see if the Nginx service is working properly.
+
+![image](https://github.com/user-attachments/assets/38241ea1-96b1-433c-9eff-519f6ef76b79)
+
+The curl command works on the VM. Let's try accessing the server from our host machine.
+
+![image](https://github.com/user-attachments/assets/a47d9686-2a7a-4910-9986-15f7fb94903c)
+
+And it works!
 
 ## YAML files explanation
 
