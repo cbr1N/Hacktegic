@@ -620,3 +620,5 @@ Here's an expanded list of useful Vagrant and Docker commands, along with explan
 - https://developer.hashicorp.com/vagrant/tutorials
 - https://stribny.name/blog/provisioning-ansible-vagrant/
 - https://github.com/ttskch/ansible-docker/blob/master/playbook.yml
+- https://zomro.com/blog/faq/317-kak-ustanovit-nginx-v-docker-compose
+- https://commandprompt.com/education/how-to-install-postgresql-using-docker-compose/#:~:text=To%20install%20PostgreSQL%20using%20Docker%20Compose%2C%20first%2C%20create%20a%20Docker,Lastly%2C%20execute%20psql%20commands.
