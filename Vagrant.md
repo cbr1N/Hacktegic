@@ -573,7 +573,7 @@ Here's an expanded list of useful Vagrant and Docker commands, along with explan
 
 ### Vagrant Commands
 
-- `vagrant status`**: Shows the status of all your Vagrant machines (e.g., running, suspended, or not created).
+- `vagrant status`: Shows the status of all your Vagrant machines (e.g., running, suspended, or not created).
   
 - `vagrant reload`: Restarts the virtual machine and applies any changes made to the Vagrantfile without destroying and recreating the VM.
   
