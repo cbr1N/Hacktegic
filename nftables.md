@@ -39,11 +39,11 @@ table inet filter {
   }
 }
 ```
-sudo systemctl start nftables
-sudo systemctl enable nftables
-sudo nft list ruleset
+`sudo systemctl start nftables`
+`sudo systemctl enable nftables`
+`sudo nft list ruleset`
 
-sudo virsh net-list --all
-sudo systemctl start libvirtd
-sudo systemctl enable libvirtd
-vagrant up
+`sudo virsh net-list --all`
+`sudo systemctl start libvirtd`
+`sudo systemctl enable libvirtd`
+`vagrant up`
